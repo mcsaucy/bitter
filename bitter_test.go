@@ -1,6 +1,7 @@
 package bitter
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -51,6 +52,30 @@ func TestForEachV(t *testing.T) {
 
 	if !cmp.Equal(want, have) {
 		t.Errorf("ForEachV(FromSlice(%q), strings.ToUpper) --> %q, want %q", in, have, want)
+	}
+
+}
+
+func TestForEachVContext(t *testing.T) {
+	in := []string{"aperol", "campari", "fernet", "cynar"}
+	want := []string{"APEROL", "CAMPARI", "FERNET", "CYNAR"}
+
+	ctx := context.WithValue(context.Background(), "lol", "omg")
+	do := func(ctx context.Context, in string) string {
+		v := ctx.Value("lol")
+		if vs, ok := v.(string); !ok || vs != "omg" {
+			t.Errorf("context.Value(lol) = %v; want omg", v)
+		}
+		return strings.ToUpper(in)
+	}
+
+	have := make([]string, len(in))
+	for i, v := range ForEachVContext(ctx, FromSlice(want), do) {
+		have[i] = v
+	}
+
+	if !cmp.Equal(want, have) {
+		t.Errorf("ForEachVContext(ctx, FromSlice(%q), strings.ToUpper) --> %q, want %q", in, have, want)
 	}
 
 }
