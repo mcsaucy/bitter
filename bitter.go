@@ -1,4 +1,4 @@
-// Package bitter lets you build pipelines using rangefunc sequences.
+// Package bitter lets you build cool rangefuncs using iter.Seq and iter.Seq2.
 package bitter
 
 import (
@@ -6,56 +6,53 @@ import (
 	"iter"
 )
 
-func FromSlice[V any](s []V) iter.Seq2[int, V] {
-	return func(yield func(int, V) bool) {
-		for i, v := range s {
-			if !yield(i, v) {
+func FromSlice[V any](s []any) iter.Seq[int] {
+	return func(yield func(int) bool) {
+		for i := range s {
+			if !yield(i) {
 				return
 			}
 		}
 	}
+}
+
+func ToSlice[V any](i iter.Seq[V]) []V {
+	var vs []V
+	for v := range i {
+		vs = append(vs, v)
+	}
+	return vs
 }
 
 // ForEach executes "do" for each entry of "in".
-func ForEach[K, V, Kp, Vp any](in iter.Seq2[K, V], do func(K, V) (Kp, Vp)) iter.Seq2[Kp, Vp] {
-	return func(yield func(Kp, Vp) bool) {
-		for k, v := range in {
-			if !yield(do(k, v)) {
+func ForEach[V, Vp any](in iter.Seq[V], do func(V) Vp) iter.Seq[Vp] {
+	return func(yield func(v Vp) bool) {
+		for v := range in {
+			if !yield(do(v)) {
 				return
 			}
 		}
 	}
 }
 
-// ForEachV is like ForEach, except it only processes the right value (V) and preserves the left value (K).
-func ForEachV[K, V, Vp any](in iter.Seq2[K, V], do func(V) Vp) iter.Seq2[K, Vp] {
-	return ForEach(in, func(k K, v V) (K, Vp) {
-		return k, do(v)
-	})
-}
-
-// ForEachContext executes "do" for each entry of "in", passing in a context as the first argument.
-func ForEachContext[K, V, Kp, Vp any](
-	ctx context.Context,
-	in iter.Seq2[K, V],
-	do func(context.Context, K, V) (Kp, Vp),
-) iter.Seq2[Kp, Vp] {
-	return func(yield func(Kp, Vp) bool) {
-		for k, v := range in {
-			if !yield(do(ctx, k, v)) {
+// Enhance executes "do" for each entry of "in", expecting "do" to return two values.
+func Enhance[V, Kp, Vp any](in iter.Seq[V], do func(V) (Kp, Vp)) iter.Seq2[Kp, Vp] {
+	return func(yield func(k Kp, v Vp) bool) {
+		for v := range in {
+			if !yield(do(v)) {
 				return
 			}
 		}
 	}
 }
 
-// ForEachVContext is like ForEach, except it only processes the right value (V) and preserves the left value (K), passing in a context as the first argument.
-func ForEachVContext[K, V, Vp any](
+// ForEachContext is like ForEach, but also passes in a context as the first argument.
+func ForEachContext[V, Vp any](
 	ctx context.Context,
-	in iter.Seq2[K, V],
+	in iter.Seq[V],
 	do func(context.Context, V) Vp,
-) iter.Seq2[K, Vp] {
-	return ForEachContext(ctx, in, func(ctx context.Context, k K, v V) (K, Vp) {
-		return k, do(ctx, v)
+) iter.Seq[Vp] {
+	return ForEach(in, func(v V) Vp {
+		return do(ctx, v)
 	})
 }
